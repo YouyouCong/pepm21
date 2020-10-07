@@ -98,7 +98,7 @@ data Exp (var : Ty → Set) : Ty → Tr → Ty → Tr → Ty → Set where
 〚 ● 〛μ = ⊤
 〚 τ ⇨ τ' , μ 〛μ = 〚 τ 〛τ → 〚 μ 〛μ → 〚 τ' 〛τ
 
--- Trail composition
+-- Trail composition (corresponds to _::_ and _@_)
 compose-trail : {μ₁ μ₂ μ₃ : Tr} →
   compatible μ₁ μ₂ μ₃ → 〚 μ₁ 〛μ → 〚 μ₂ 〛μ → 〚 μ₃ 〛μ
 compose-trail {●} refl tt t₂ = t₂
@@ -108,11 +108,11 @@ compose-trail {τ₁ ⇨ τ₁' , μ₁} {τ₂ ⇨ τ₂' , μ₂} {.τ₁ ⇨ 
   λ v t' → t₁ v (compose-trail c t₂ t')
 
 -- Identity continuation
-id-cont : {τ τ' : Ty} → {μ : Tr} →
+kid : {τ τ' : Ty} → {μ : Tr} →
      is-id-trail τ τ' μ →
      〚 τ 〛τ → 〚 μ 〛μ → 〚 τ' 〛τ
-id-cont {μ = ●} refl v tt = v
-id-cont {μ = τ₁ ⇨ τ₁' , .●} (refl , refl , refl) v k = k v tt
+kid {μ = ●} refl v tt = v
+kid {μ = τ₁ ⇨ τ₁' , .●} (refl , refl , refl) v k = k v tt
 
 -- is0
 is0 : ℕ → 𝔹
@@ -143,8 +143,8 @@ g (B2S e) k t = g {var = 〚_〛τ} e (λ v t' → k (b2s v) t') t
 g (Control is-id c₁ c₂ f) k t =
   g {var = 〚_〛τ}
     (f (λ v k' t' → k v (compose-trail c₂ t (compose-trail c₁ k' t'))))
-    (id-cont is-id) tt
-g (Prompt is-id e) k t = k (g {var = 〚_〛τ} e (id-cont is-id) tt) t
+    (kid is-id) tt
+g (Prompt is-id e) k t = k (g {var = 〚_〛τ} e (kid is-id) tt) t
 
 -- Top-level evaluation
 go : {τ : Ty} → Exp 〚_〛τ τ ● τ ● τ → 〚 τ 〛τ
@@ -249,35 +249,63 @@ test4 = refl
 exp5 : {var : Ty → Set} {α : Ty} {μα : Tr} →
        Exp var Nat μα α μα α
 exp5 =
-  Prompt {μid = Nat ⇨ Nat , ●}
+  Prompt {μid = Nat ⇨ Nat , ●} -- 1
          (refl , refl , refl)
-         (App {μβ = Nat ⇨ Nat , ●}
+         (App {μβ = Nat ⇨ Nat , ●} -- 2
               (Abs (λ a →
-                Control {μid = ●}
-                        {μ₀ = Nat ⇨ Nat , ●}
-                        {μ₁ = ●}
-                        {μ₂ = ●}
-                        {μα = Nat ⇨ Nat , ●}
-                        {μβ = Nat ⇨ Nat , ●}
+                Control {μid = ●} -- 3
+                        {μ₀ = Nat ⇨ Nat , ●} -- 4
+                        {μ₁ = ●} -- 5
+                        {μ₂ = ●} -- 6
+                        {μα = Nat ⇨ Nat , ●} -- 7
+                        {μβ = Nat ⇨ Nat , ●} -- 8
                         refl
                         refl
                         (refl , refl , {!!})
                         (λ k₂ → App (Abs (λ c → App (Var k₂) (Num 1)))
                                     (App (Var k₂) (Num 1)))))
-              (Control {μid = ●}
-                       {μ₀ = Nat ⇨ Nat , ●}
-                       {μ₁ = ●}
-                       {μ₂ = ●}
-                       {μα = Nat ⇨ Nat , ●}
-                       {μβ = ●}
+              (Control {μid = ●} -- 9
+                       {μ₀ = Nat ⇨ Nat , ●} -- 10
+                       {μ₁ = ●} -- 11
+                       {μ₂ = ●} -- 12
+                       {μα = Nat ⇨ Nat , ●} -- 13
+                       {μβ = ●} -- 14
                        refl
                        refl
                        refl
                        (λ k₁ → App (Abs (λ b → App (Var k₁) (Num 1)))
                                    (App (Var k₁) (Num 1)))))
 
-test5 : go exp5 ≡ 1
-test5 = refl
+{-
+Let eᵢ = kᵢ 1; kᵢ 1 where i = 1, 2.
+
+a. By (Shift), initial trail type of eᵢ = ●.
+   By (App), initial trail type of eᵢ = initial trail type of body of kᵢ.
+   Therefore, 6 = 12 = ●.
+
+b. By (App), final trail type of eᵢ = final answer type of body of kᵢ.
+   Therefore, 3 = 5, 9 = 11.
+
+c. By (App), final trail type of first kᵢ 1 = initial trail type of second kᵢ 1.
+   Therefore, 5 = 6, 11 = 12.
+
+d. By a, c, and compatible (t₁ ⇨ t₂ , μ₁) μ₂ μ₀, 4 = 10 = Nat ⇨ Nat , ●
+
+e. By (Prompt), initial trail type of body of <> = ●.
+   By (App), initial trail type of body of <> = initial trail type of Fk₁. e₁.
+   Therefore, 14 = ●.
+
+f. By compatible μβ μ₀ μα, 13 = Nat ⇨ Nat , ●.
+
+g. By (App), final trail type of Fk₁. e₁ = initial trail type of Fk₂. e₂.
+   Therefore, 8 = Nat ⇨ Nat , ●.
+
+h. By (Prompt), final trail type of body of <> must satisfy is-id-trail.
+   By (App), final trail type of body of <> = final trail type of Fk₂. e₂.
+   Therefore, 7 = Nat ⇨ Nat , ●.
+
+i. By d, g, and h, compatible μβ μ₀ μα does not hold for Fk₂. e₂.
+-}
 
 -- 2 control, 2/0 resumptions (terminating, ill-typed)
 -- < (Fk₁. 1); (Fk₂. k₂ 1; k₂ 1) >
@@ -305,9 +333,6 @@ exp6 =
                        refl
                        (λ k₁ → App (Abs (λ c → App (Var k₁) (Num 1)))
                                    (App (Var k₁) (Num 1)))))
-
-test6 : go exp6 ≡ 1
-test6 = refl
 
 -- 2 control, 0/2 resumptions (well-typed)
 -- < Fk₁. 1; (Fk₂. k₂ 1; k₂ 1) >
