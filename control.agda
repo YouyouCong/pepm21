@@ -71,11 +71,11 @@ data Exp (var : Ty → Set) : Ty → Tr → Ty → Tr → Ty → Set where
   B2S     : {α β : Ty} {μα μβ : Tr} →
             Exp var Bool μα α μβ β →
             Exp var Str μα α μβ β
-  Control : {τ α β γ γ' t₁ t₂ : Ty} {μid μ₀ μ₁ μ₂ μα μβ : Tr} →
+  Control : {τ α β γ γ' τ₁ τ₂ : Ty} {μid μ₀ μ₁ μ₂ μα μβ : Tr} →
             is-id-trail γ γ' μid →
-            compatible (t₁ ⇨ t₂ , μ₁) μ₂ μ₀ →
+            compatible (τ₁ ⇨ τ₂ , μ₁) μ₂ μ₀ →
             compatible μβ μ₀ μα →
-            (var (τ ⇒ t₁ , μ₁ , t₂ , μ₂ , α) →
+            (var (τ ⇒ τ₁ , μ₁ , τ₂ , μ₂ , α) →
              Exp var γ μid γ' ● β) →
             Exp var τ μα α μβ β
   Prompt  : {τ α β β' : Ty} {μid μα : Tr} →
@@ -92,8 +92,8 @@ data Exp (var : Ty → Set) : Ty → Tr → Ty → Tr → Ty → Set where
 〚 Nat 〛τ = ℕ
 〚 Bool 〛τ = 𝔹
 〚 Str 〛τ = String
-〚 τ₂ ⇒ τ₁ , μα , α , μβ , β 〛τ =
-  〚 τ₂ 〛τ → (〚 τ₁ 〛τ → 〚 μα 〛μ → 〚 α 〛τ) → 〚 μβ 〛μ → 〚 β 〛τ
+〚 τ₁ ⇒ τ₂ , μα , α , μβ , β 〛τ =
+  〚 τ₁ 〛τ → (〚 τ₂ 〛τ → 〚 μα 〛μ → 〚 α 〛τ) → 〚 μβ 〛μ → 〚 β 〛τ
 
 〚 ● 〛μ = ⊤
 〚 τ ⇨ τ' , μ 〛μ = 〚 τ 〛τ → 〚 μ 〛μ → 〚 τ' 〛τ
@@ -203,12 +203,12 @@ exp3 =
       (Plus (Num 1)
          (Prompt {β' = Nat} (refl , refl , refl)
                  (App (Abs (λ x →
-                              Control {t₁ = Nat} {t₂ = Nat} {μ₁ = ●} {μ₂ = ●}
+                              Control {τ₁ = Nat} {τ₂ = Nat} {μ₁ = ●} {μ₂ = ●}
                                       refl refl (refl , refl , refl)
                                       (λ h → Var x)))
                        (Control {γ = Nat} (refl , refl , refl) refl refl
                                 (λ f →
-                                   Control {t₁ = Nat} {t₂ = Nat} {μ₁ = ●} {μ₂ = ●}
+                                   Control {τ₁ = Nat} {τ₂ = Nat} {μ₁ = ●} {μ₂ = ●}
                                            (refl , refl , refl) refl refl
                                            (λ g →
                                               Plus (Num 2)
@@ -308,7 +308,7 @@ i. By d, g, and h, compatible μβ μ₀ μα does not hold for Fk₂. e₂.
 -}
 
 -- 2 control, 2/0 resumptions (terminating, ill-typed)
--- < (Fk₁. 1); (Fk₂. k₂ 1; k₂ 1) >
+-- < (Fk₁. k₁ 1; k₁ 1); (Fk₂. 1) >
 exp6 : {var : Ty → Set} {α : Ty} {μα : Tr} →
        Exp var Nat μα α μα α
 exp6 =
@@ -353,8 +353,8 @@ exp7 =
                         (refl , refl , refl)
                         (λ k₂ → App (Abs (λ c → App (Var k₂) (Num 1)))
                                     (App (Var k₂) (Num 1)))))
-              (Control {t₁ = Nat}
-                       {t₂ = Nat}
+              (Control {τ₁ = Nat}
+                       {τ₂ = Nat}
                        {μid = ●}
                        {μ₀ = Nat ⇨ Nat , (Nat ⇨ Nat , ●)}
                        {μ₁ = Nat ⇨ Nat , ●}
